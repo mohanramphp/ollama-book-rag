@@ -1,0 +1,11 @@
+streamlit>=1.38
+langchain-community>=0.3
+langchain-text-splitters>=0.3
+langchain-ollama>=0.2
+langchain-chroma>=0.2
+langchain-experimental>=0.3
+ollama>=0.4
+pypdf>=5.0
+unstructured[epub]>=0.16
+requests>=2.32
+fonttools==4.66.0

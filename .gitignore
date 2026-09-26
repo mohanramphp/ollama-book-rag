@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+
+chroma_db/
+books_manifest.json
+books/*
+!books/.gitkeep
+
+.env

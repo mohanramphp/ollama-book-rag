@@ -118,8 +118,10 @@ retrieved content isn't relevant enough to the question.
 - **Health checks**: both UIs and both CLI scripts check that Ollama is actually reachable (and that required models are pulled) before doing anything, and fail with a clear message instead of a raw connection traceback.
 - **Content-based dedup**: knowledge sources are hashed (SHA-256) on upload, so a renamed re-upload of the same file is still caught.
 - **Cosine distance**: the vector store explicitly uses cosine similarity (bounded 0–2), so the relevance threshold is a meaningful, tunable number rather than an arbitrary guess against an unknown default metric.
-- **Resilient ingestion**: embedding happens in retryable batches (both for normal and semantic chunking) so a transient Ollama hiccup doesn't cost you the whole ingestion job.
-- **Configurable, not hardcoded**: every tunable value (chunk size, top_k, temperature, batch sizes, retry behavior) lives in `config.py` and can be overridden via environment variables without touching code.
+- **Resilient ingestion**: embedding happens in retryable batches (both for normal and semantic chunking) with capped exponential backoff, and failed attempts clean up their chunk IDs before reporting an error.
+- **Bounded semantic chunks**: semantic boundaries are preserved, but oversized semantic chunks are split at `RAG_SEMANTIC_MAX_CHUNK_SIZE` before embedding so generation context remains predictable.
+- **Configuration-aware indexing**: the manifest records the embedding model and chunking settings used. Changing those settings requires an explicit knowledge-base reset and rebuild rather than silently mixing incompatible vectors.
+- **Configurable, not hardcoded**: every tunable value (chunk size, semantic maximum, top_k, temperature, batch sizes, retry behavior) lives in `config.py` and can be overridden via environment variables without touching code.
 - **Streaming + transparency**: answers stream token-by-token, and every answer shows its `Reasoning:` (which source it used) before the `Answer:`, plus an expandable view of the raw retrieved chunks and their scores.
 
 ---

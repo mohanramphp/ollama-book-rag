@@ -112,6 +112,21 @@ def is_already_ingested(content_hash: str) -> bool:
     return content_hash in load_manifest()
 
 
+def ingestion_settings(semantic: bool) -> dict:
+    return {
+        "embedding_model": config.EMBED_MODEL,
+        "chunking_method": "semantic" if semantic else "recursive",
+        "chunk_size": config.CHUNK_SIZE,
+        "chunk_overlap": config.CHUNK_OVERLAP,
+        "semantic_max_chunk_size": config.SEMANTIC_MAX_CHUNK_SIZE,
+    }
+
+
+def retry_delay(attempt: int) -> int:
+    delay = config.RETRY_DELAY_SECONDS * (2 ** (attempt - 1))
+    return min(delay, config.RETRY_MAX_DELAY_SECONDS)
+
+
 # --- Loading + chunking ---------------------------------------------------
 
 def load_file(path: Path):
@@ -144,7 +159,7 @@ class ResilientOllamaEmbeddings(OllamaEmbeddings):
                 except Exception:
                     if attempt == self.max_retries:
                         raise
-                    time.sleep(self.retry_delay_seconds)
+                    time.sleep(retry_delay(attempt))
         return all_embeddings
 
 
@@ -159,6 +174,7 @@ def ingest_source(file_path: Path, semantic: bool = False):
     the filename is different or the underlying file bytes differ slightly.
     """
     try:
+        settings = ingestion_settings(semantic)
         yield {"stage": "loading", "message": f"Loading {file_path.name}..."}
         docs = load_file(file_path)
         for d in docs:
@@ -170,6 +186,18 @@ def ingest_source(file_path: Path, semantic: bool = False):
         manifest = load_manifest()
         if content_hash in manifest:
             existing = manifest[content_hash]
+            existing_settings = existing.get("ingestion_settings")
+            if existing_settings != settings:
+                yield {
+                    "stage": "error",
+                    "message": (
+                        "This source is already indexed without matching ingestion "
+                        "settings. Reset and rebuild the knowledge base before "
+                        "continuing, especially after changing the embedding model "
+                        "or chunking settings."
+                    ),
+                }
+                return
             yield {
                 "stage": "duplicate",
                 "message": (
@@ -197,6 +225,20 @@ def ingest_source(file_path: Path, semantic: bool = False):
             )
 
         chunks = splitter.split_documents(docs)
+        if semantic:
+            size_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=config.SEMANTIC_MAX_CHUNK_SIZE,
+                chunk_overlap=config.CHUNK_OVERLAP,
+                separators=["\n\n", "\n", ". ", " ", ""],
+            )
+            bounded_chunks = []
+            for chunk in chunks:
+                if len(chunk.page_content) > config.SEMANTIC_MAX_CHUNK_SIZE:
+                    bounded_chunks.extend(
+                        size_splitter.split_documents([chunk]))
+                else:
+                    bounded_chunks.append(chunk)
+            chunks = bounded_chunks
         method_label = "semantic" if semantic else "recursive"
         for i, chunk in enumerate(chunks):
             chunk.metadata["chunking_method"] = method_label
@@ -211,16 +253,24 @@ def ingest_source(file_path: Path, semantic: bool = False):
         )
 
         total = len(chunks)
+        chunk_ids = [f"{content_hash}:{index}" for index in range(total)]
+        added_ids = []
         for start in range(0, total, config.EMBED_BATCH_SIZE):
             batch = chunks[start:start + config.EMBED_BATCH_SIZE]
+            batch_ids = chunk_ids[start:start + config.EMBED_BATCH_SIZE]
             for attempt in range(1, config.MAX_RETRIES + 1):
                 try:
-                    vectorstore.add_documents(batch)
+                    vectorstore.add_documents(batch, ids=batch_ids)
+                    added_ids.extend(batch_ids)
                     break
                 except Exception:
+                    try:
+                        vectorstore.delete(ids=batch_ids)
+                    except Exception:
+                        pass
                     if attempt == config.MAX_RETRIES:
                         raise
-                    time.sleep(config.RETRY_DELAY_SECONDS)
+                    time.sleep(retry_delay(attempt))
             done = min(start + config.EMBED_BATCH_SIZE, total)
             yield {
                 "stage": "embedding",
@@ -236,12 +286,18 @@ def ingest_source(file_path: Path, semantic: bool = False):
             "pages": len(docs),
             "chunks": len(chunks),
             "chunking_method": "semantic" if semantic else "recursive",
+            "ingestion_settings": settings,
         }
         save_manifest(manifest)
 
         yield {"stage": "done", "message": f"Done — {file_path.name} is ready to query", "chunks": len(chunks)}
 
     except Exception as e:
+        if "added_ids" in locals() and added_ids:
+            try:
+                vectorstore.delete(ids=added_ids)
+            except Exception:
+                pass
         yield {"stage": "error", "message": str(e)}
 
 

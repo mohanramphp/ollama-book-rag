@@ -32,6 +32,8 @@ AVAILABLE_MODELS = [
 
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", 800))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", 120))
+SEMANTIC_MAX_CHUNK_SIZE = int(
+    os.environ.get("RAG_SEMANTIC_MAX_CHUNK_SIZE", 1200))
 
 # --- Retrieval + generation defaults (adjustable live in query_app.py) -----
 
@@ -50,6 +52,8 @@ SEMANTIC_EMBED_BATCH_SIZE = int(
     os.environ.get("RAG_SEMANTIC_EMBED_BATCH_SIZE", 20))
 MAX_RETRIES = int(os.environ.get("RAG_MAX_RETRIES", 4))
 RETRY_DELAY_SECONDS = int(os.environ.get("RAG_RETRY_DELAY_SECONDS", 10))
+RETRY_MAX_DELAY_SECONDS = int(
+    os.environ.get("RAG_RETRY_MAX_DELAY_SECONDS", 120))
 
 # --- Ollama connection -------------------------------------------------
 

@@ -67,6 +67,7 @@ Configuration belongs in `config.py` and is environment-overridable. Read `.env.
 - Keep CLI and Streamlit behavior aligned through `rag_core.py`.
 - Do not add web, cloud, telemetry, or external API dependencies. Ollama calls must remain local through `OLLAMA_HOST`.
 - Treat user documents and generated indexes as data, not disposable build output.
+- Changing the embedding model or chunking settings requires an explicit knowledge-base rebuild; never mix incompatible vectors silently.
 
 ## Data Safety
 

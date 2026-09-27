@@ -3,7 +3,7 @@ query.py — CLI chat. For most day-to-day use, query_app.py (the Streamlit UI)
 is more convenient — this is kept for quick terminal testing.
 
 Usage:
-    python query.py
+    py query.py
 """
 
 import config
@@ -21,10 +21,11 @@ def main():
         vectorstore = core.get_vectorstore()
     except Exception as e:
         print(f"Could not load vector store: {e}")
-        print("Did you run 'python feeder.py <books_folder>' first?")
+        print("Did you run 'py knowledge_builder.py <knowledge_sources_folder>' first?")
         return
 
-    print(f"Ready. Answering strictly from your books using '{config.DEFAULT_MODEL}'.")
+    print(
+        f"Ready. Answering strictly from your books using '{config.DEFAULT_MODEL}'.")
     print("Type your question, '/reset' to clear conversation memory, or 'exit' to quit.\n")
 
     conversation_history = []
@@ -43,7 +44,8 @@ def main():
         context, matches = core.retrieve_context(vectorstore, question)
 
         if context is None:
-            print("\nSLM: I don't have information about this in the provided knowledge source.\n")
+            print(
+                "\nSLM: I don't have information about this in the provided knowledge source.\n")
             continue
 
         print("  [debug] retrieval scores (lower = more relevant):")
@@ -60,7 +62,8 @@ def main():
         print()
 
         conversation_history.append({"role": "user", "content": question})
-        conversation_history.append({"role": "assistant", "content": full_response})
+        conversation_history.append(
+            {"role": "assistant", "content": full_response})
         max_messages = config.MAX_HISTORY_TURNS * 2
         if len(conversation_history) > max_messages:
             del conversation_history[:len(conversation_history) - max_messages]

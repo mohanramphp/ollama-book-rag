@@ -23,6 +23,6 @@ echo Next steps:
 echo   1. Pull the models this project needs:
 echo        ollama pull phi4-mini
 echo        ollama pull nomic-embed-text
-echo   2. Run run_feeder.bat to ingest books, or run_query.bat to chat.
+echo   2. Run run_knowledge_builder.bat to add knowledge sources, or run_query.bat to chat.
 echo.
 pause

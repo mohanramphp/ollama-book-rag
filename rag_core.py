@@ -1,6 +1,6 @@
 """
-rag_core.py — Shared logic for the book-RAG project. Every entry point
-(feeder_app.py, query_app.py, feeder.py, query.py) imports from here, so
+rag_core.py — Shared logic for the knowledge-base project. Every entry point
+(knowledge_builder_app.py, query_app.py, knowledge_builder.py, query.py) imports from here, so
 there's exactly one implementation of chunking/embedding/retrieval/chat to
 keep correct instead of several copies drifting apart.
 """
@@ -20,8 +20,8 @@ import ollama
 
 import config
 
-BOOKS_DIR = Path(config.BOOKS_DIR)
-BOOKS_DIR.mkdir(exist_ok=True)
+SOURCES_DIR = Path(config.SOURCES_DIR)
+SOURCES_DIR.mkdir(exist_ok=True)
 
 SYSTEM_PROMPT = """You are a knowledge assistant that answers questions using ONLY the
 context provided below, which comes from the user's own book collection.
@@ -265,7 +265,8 @@ def retrieve_context(vectorstore, question: str, top_k: int = None, relevance_th
     if not results:
         return None, []
 
-    relevant = [(doc, score) for doc, score in results if score <= relevance_threshold]
+    relevant = [(doc, score)
+                for doc, score in results if score <= relevance_threshold]
     if not relevant:
         return None, results
 

@@ -10,7 +10,10 @@ import os
 
 # --- Paths -----------------------------------------------------------------
 
-BOOKS_DIR = os.environ.get("RAG_BOOKS_DIR", "./books")
+SOURCES_DIR = os.environ.get(
+    "RAG_SOURCES_DIR",
+    os.environ.get("RAG_BOOKS_DIR", "./knowledge_sources"),
+)
 PERSIST_DIR = os.environ.get("RAG_PERSIST_DIR", "./chroma_db")
 MANIFEST_PATH = os.environ.get("RAG_MANIFEST_PATH", "./books_manifest.json")
 
@@ -32,14 +35,16 @@ CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", 120))
 # --- Retrieval + generation defaults (adjustable live in query_app.py) -----
 
 TOP_K_DEFAULT = int(os.environ.get("RAG_TOP_K", 4))
-RELEVANCE_THRESHOLD_DEFAULT = float(os.environ.get("RAG_RELEVANCE_THRESHOLD", 0.8))
+RELEVANCE_THRESHOLD_DEFAULT = float(
+    os.environ.get("RAG_RELEVANCE_THRESHOLD", 0.8))
 TEMPERATURE_DEFAULT = float(os.environ.get("RAG_TEMPERATURE", 0.0))
 MAX_HISTORY_TURNS = int(os.environ.get("RAG_MAX_HISTORY_TURNS", 6))
 
 # --- Resilience (retry/backoff for embedding calls) ------------------------
 
 EMBED_BATCH_SIZE = int(os.environ.get("RAG_EMBED_BATCH_SIZE", 40))
-SEMANTIC_EMBED_BATCH_SIZE = int(os.environ.get("RAG_SEMANTIC_EMBED_BATCH_SIZE", 20))
+SEMANTIC_EMBED_BATCH_SIZE = int(
+    os.environ.get("RAG_SEMANTIC_EMBED_BATCH_SIZE", 20))
 MAX_RETRIES = int(os.environ.get("RAG_MAX_RETRIES", 4))
 RETRY_DELAY_SECONDS = int(os.environ.get("RAG_RETRY_DELAY_SECONDS", 10))
 

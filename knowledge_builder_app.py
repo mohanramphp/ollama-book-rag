@@ -1,8 +1,8 @@
 """
-feeder_app.py — Upload books and watch them get ingested into the local
+knowledge_builder_app.py — Upload knowledge sources and watch them get ingested into the local
 knowledge base, with live progress and a catalog of what's already in.
 
-Run with: streamlit run feeder_app.py
+Run with: streamlit run knowledge_builder_app.py
 """
 
 import streamlit as st
@@ -10,9 +10,10 @@ import streamlit as st
 import config
 import rag_core as core
 
-st.set_page_config(page_title="Book Feeder", page_icon="📚", layout="wide")
-st.title("📚 Book Feeder")
-st.caption("Upload books to add them to your local, offline knowledge base.")
+st.set_page_config(page_title="Knowledge Builder",
+                   page_icon="📚", layout="wide")
+st.title("📚 Knowledge Builder")
+st.caption("Upload documents to add them to your local, offline knowledge base.")
 
 # --- Health check ------------------------------------------------------------
 
@@ -30,11 +31,12 @@ if missing:
 
 # --- Upload + ingest ------------------------------------------------------
 
-st.subheader("Add books")
+st.subheader("Add knowledge sources")
 
 chunking_method = st.radio(
     "Chunking method",
-    options=["Recursive (fast, fixed-size)", "Semantic (slower, groups by meaning)"],
+    options=["Recursive (fast, fixed-size)",
+             "Semantic (slower, groups by meaning)"],
     horizontal=True,
     help="Semantic chunking embeds sentence-by-sentence to find natural topic "
          "breaks — better quality for prose, but noticeably slower on CPU.",
@@ -42,7 +44,7 @@ chunking_method = st.radio(
 use_semantic = chunking_method.startswith("Semantic")
 
 uploaded_files = st.file_uploader(
-    "Choose PDF, EPUB, or TXT files",
+    "Choose PDF, EPUB, TXT, or Markdown files",
     type=["pdf", "epub", "txt", "md"],
     accept_multiple_files=True,
 )
@@ -53,7 +55,7 @@ if uploaded_files and st.button("Ingest selected files", type="primary"):
 
         st.markdown(f"### {uploaded_file.name}")
 
-        dest_path = core.BOOKS_DIR / uploaded_file.name
+        dest_path = core.SOURCES_DIR / uploaded_file.name
         with open(dest_path, "wb") as f:
             f.write(file_bytes)
 
@@ -71,7 +73,8 @@ if uploaded_files and st.button("Ingest selected files", type="primary"):
             elif stage == "duplicate":
                 progress_bar.empty()
                 st.warning(update["message"])
-                dest_path.unlink(missing_ok=True)  # don't leave a redundant renamed copy on disk
+                # don't leave a redundant renamed copy on disk
+                dest_path.unlink(missing_ok=True)
                 break
 
             elif stage == "embedding":
@@ -90,12 +93,12 @@ if uploaded_files and st.button("Ingest selected files", type="primary"):
 # --- Catalog ---------------------------------------------------------------
 
 st.divider()
-st.subheader("📖 Catalog — books in your knowledge base")
+st.subheader("📖 Catalog — sources in your knowledge base")
 
 manifest = core.load_manifest()
 
 if not manifest:
-    st.info("No books ingested yet. Upload some above to get started.")
+    st.info("No knowledge sources ingested yet. Upload some above to get started.")
 else:
     rows = []
     for content_hash, info in manifest.items():
@@ -109,11 +112,12 @@ else:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
     total_chunks = sum(r["Chunks"] for r in rows)
-    st.caption(f"{len(rows)} book(s), {total_chunks} total chunks in the knowledge base.")
+    st.caption(
+        f"{len(rows)} book(s), {total_chunks} total chunks in the knowledge base.")
 
     with st.expander("⚠️ Danger zone: reset everything"):
         st.write("This deletes the vector database, the catalog, **and the uploaded "
-                 "book files themselves** from the `./books` folder. This can't be undone.")
+                 "source files themselves** from the `./knowledge_sources` folder. This can't be undone.")
         if st.button("Delete knowledge base, catalog, and book files", type="secondary"):
             import shutil
             from pathlib import Path
@@ -121,9 +125,10 @@ else:
             shutil.rmtree(config.PERSIST_DIR, ignore_errors=True)
             Path(config.MANIFEST_PATH).unlink(missing_ok=True)
 
-            for f in core.BOOKS_DIR.glob("*"):
+            for f in core.SOURCES_DIR.glob("*"):
                 if f.is_file() and f.name != ".gitkeep":
                     f.unlink()
 
-            st.success("Reset. Upload your books again to rebuild the knowledge base.")
+            st.success(
+                "Reset. Upload your knowledge sources again to rebuild the knowledge base.")
             st.rerun()

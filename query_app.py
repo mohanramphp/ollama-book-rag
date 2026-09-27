@@ -16,12 +16,14 @@ def render_source_line(doc, score, discarded: bool = False):
     source = doc.metadata.get("source_book", "unknown")
     method = doc.metadata.get("chunking_method", "unknown")
     suffix = " (above threshold, discarded)" if discarded else ""
-    st.markdown(f"**{source}** · _{method} chunking_ — relevance score `{score:.3f}`{suffix}")
+    st.markdown(
+        f"**{source}** · _{method} chunking_ — relevance score `{score:.3f}`{suffix}")
 
 
 st.set_page_config(page_title="Ask Your Books", page_icon="🤖", layout="wide")
 st.title("🤖 Ask Your Books")
-st.caption("Answers come only from your ingested books — no outside knowledge, no internet calls.")
+st.caption(
+    "Answers come only from your ingested books — no outside knowledge, no internet calls.")
 
 # --- Health check ------------------------------------------------------------
 
@@ -31,7 +33,8 @@ if not healthy:
     st.info("Start Ollama, then refresh this page.")
     st.stop()
 
-missing = core.check_models_available([config.EMBED_MODEL] + config.AVAILABLE_MODELS, detail)
+missing = core.check_models_available(
+    [config.EMBED_MODEL] + config.AVAILABLE_MODELS, detail)
 if missing:
     st.warning(
         f"Some configured models aren't pulled yet: {', '.join(missing)}. "
@@ -90,25 +93,28 @@ with st.sidebar:
 
 # --- Load vector store (cached so it's not reloaded every rerun) -----------
 
+
 @st.cache_resource
 def load_store():
     return core.get_vectorstore()
+
 
 try:
     vectorstore = load_store()
 except Exception as e:
     st.error(f"Could not load the knowledge base: {e}")
-    st.info("Ingest some books first using feeder_app.py.")
+    st.info("Ingest some knowledge sources first using knowledge_builder_app.py.")
     st.stop()
 
 manifest = core.load_manifest()
 if not manifest:
-    st.warning("Your knowledge base is empty. Ingest books using feeder_app.py before asking questions.")
+    st.warning("Your knowledge base is empty. Ingest knowledge sources using knowledge_builder_app.py before asking questions.")
 
 # --- Chat state --------------------------------------------------------------
 
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # each item: {"role": ..., "content": ..., "sources": [...] or None}
+    # each item: {"role": ..., "content": ..., "sources": [...] or None}
+    st.session_state.messages = []
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -117,18 +123,21 @@ for msg in st.session_state.messages:
             with st.expander("📎 Retrieved sources"):
                 for doc, score in msg["sources"]:
                     render_source_line(doc, score)
-                    st.text(doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
+                    st.text(
+                        doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
 
 # --- New question ------------------------------------------------------------
 
 question = st.chat_input("Ask something about your books...")
 
 if question:
-    st.session_state.messages.append({"role": "user", "content": question, "sources": None})
+    st.session_state.messages.append(
+        {"role": "user", "content": question, "sources": None})
     with st.chat_message("user"):
         st.markdown(question)
 
-    context, matches = core.retrieve_context(vectorstore, question, top_k, relevance_threshold)
+    context, matches = core.retrieve_context(
+        vectorstore, question, top_k, relevance_threshold)
 
     with st.chat_message("assistant"):
         if context is None:
@@ -148,7 +157,8 @@ if question:
 
             try:
                 answer = st.write_stream(
-                    core.stream_answer(model, history, question, context, temperature)
+                    core.stream_answer(
+                        model, history, question, context, temperature)
                 )
             except Exception as e:
                 answer = f"⚠️ Generation failed: {e}"
@@ -158,7 +168,8 @@ if question:
                 with st.expander("📎 Retrieved sources"):
                     for doc, score in matches:
                         render_source_line(doc, score)
-                        st.text(doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
+                        st.text(
+                            doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
 
     st.session_state.messages.append({
         "role": "assistant",

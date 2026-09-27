@@ -131,6 +131,7 @@ retrieved content isn't relevant enough to the question.
 | Role                            | Model                    | Why                                                                             |
 | ------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
 | Generator (SLM), default        | `phi4-mini` (3.8B)       | MIT licensed, ~3 GB, stays tightly grounded in context, 128K context window     |
+| Generator (Small LLM)           | `gemma3:4b` / `llama3.2` | Balanced speed and reasoning for local CPU use                                  |
 | Generator (LLM, for comparison) | `qwen3:8b` / `qwen3:14b` | Stronger reasoning, still workable on CPU                                       |
 | Embeddings                      | `nomic-embed-text`       | Shared by both, so retrieval quality doesn't confound an SLM vs. LLM comparison |
 

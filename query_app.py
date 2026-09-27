@@ -7,12 +7,26 @@ Run with: streamlit run query_app.py
 """
 
 import time
+import os
 
 import streamlit as st
 
 import config
 import rag_core as core
-import os
+
+
+MODEL_CATEGORIES = {
+    "phi4-mini": "SLM",
+    "gemma3:4b": "Small LLM",
+    "llama3.2": "Small LLM",
+    "qwen3:8b": "LLM",
+    "qwen3:14b": "LLM",
+}
+
+
+def format_model_option(model_name):
+    category = MODEL_CATEGORIES.get(model_name, "Generator")
+    return f"{model_name} ({category})"
 
 
 def render_source_line(doc, score, discarded: bool = False):
@@ -81,12 +95,13 @@ with st.sidebar:
     st.header("Settings")
 
     model = st.selectbox(
-        "Model (SLM/LLM)",
+        "Generation model",
         options=config.AVAILABLE_MODELS,
+        format_func=format_model_option,
         index=0,
-        help="phi4-mini is the recommended small model for strict, grounded "
-             "answers. qwen3:8b / qwen3:14b are larger — slower but sometimes "
-             "better reasoning — useful for comparison.",
+        help="SLM models are fastest and usually most grounded. Small LLMs offer "
+        "a balance of speed and reasoning. LLMs are slower but may handle "
+        "complex questions better.",
     )
 
     st.divider()

@@ -24,7 +24,8 @@ EMBED_MODEL = os.environ.get("RAG_EMBED_MODEL", "nomic-embed-text")
 DEFAULT_MODEL = os.environ.get("RAG_DEFAULT_MODEL", "phi4-mini")
 AVAILABLE_MODELS = [
     m.strip() for m in os.environ.get(
-        "RAG_AVAILABLE_MODELS", "phi4-mini,gemma3:4b,qwen3:8b,qwen3:14b"
+        "RAG_AVAILABLE_MODELS",
+        "phi4-mini,gemma3:4b,llama3.2,qwen3:8b,qwen3:14b",
     ).split(",")
 ]
 

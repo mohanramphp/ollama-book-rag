@@ -6,6 +6,7 @@ Run with: streamlit run knowledge_builder_app.py
 """
 
 import streamlit as st
+from pathlib import Path
 
 import config
 import rag_core as core
@@ -46,16 +47,21 @@ use_semantic = chunking_method.startswith("Semantic")
 uploaded_files = st.file_uploader(
     "Choose PDF, EPUB, TXT, or Markdown files",
     type=["pdf", "epub", "txt", "md"],
+    key=f"knowledge_sources_uploader_{st.session_state.get('uploader_version', 0)}",
     accept_multiple_files=True,
 )
 
 if uploaded_files and st.button("Ingest selected files", type="primary"):
     for uploaded_file in uploaded_files:
         file_bytes = uploaded_file.getvalue()
+        source_name = Path(uploaded_file.name).name
+        if not source_name:
+            st.error("Skipped a file with no valid filename.")
+            continue
 
-        st.markdown(f"### {uploaded_file.name}")
+        st.markdown(f"### {source_name}")
 
-        dest_path = core.SOURCES_DIR / uploaded_file.name
+        dest_path = core.SOURCES_DIR / source_name
         with open(dest_path, "wb") as f:
             f.write(file_bytes)
 
@@ -88,6 +94,8 @@ if uploaded_files and st.button("Ingest selected files", type="primary"):
             else:
                 status_text.text(update["message"])
 
+    st.session_state.uploader_version = st.session_state.get(
+        "uploader_version", 0) + 1
     st.rerun()
 
 # --- Catalog ---------------------------------------------------------------
@@ -120,7 +128,6 @@ else:
                  "source files themselves** from the `./knowledge_sources` folder. This can't be undone.")
         if st.button("Delete knowledge base, catalog, and book files", type="secondary"):
             import shutil
-            from pathlib import Path
 
             shutil.rmtree(config.PERSIST_DIR, ignore_errors=True)
             Path(config.MANIFEST_PATH).unlink(missing_ok=True)

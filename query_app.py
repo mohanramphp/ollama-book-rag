@@ -1,10 +1,12 @@
 """
-query_app.py — Chat with your books. Answers are grounded strictly in
+query_app.py — Chat with your knowledge base. Answers are grounded strictly in
 retrieved content, rendered as markdown (so code blocks display properly),
 with model choice and retrieval/generation settings configurable in the sidebar.
 
 Run with: streamlit run query_app.py
 """
+
+import time
 
 import streamlit as st
 
@@ -20,10 +22,40 @@ def render_source_line(doc, score, discarded: bool = False):
         f"**{source}** · _{method} chunking_ — relevance score `{score:.3f}`{suffix}")
 
 
-st.set_page_config(page_title="Ask Your Books", page_icon="🤖", layout="wide")
-st.title("🤖 Ask Your Books")
+def split_answer(response):
+    marker = "**Answer:**"
+    if marker in response:
+        reasoning, answer = response.split(marker, 1)
+        return reasoning.replace("**Reasoning:**", "").strip(), answer.strip()
+    return "", response.strip()
+
+
+def render_answer_details(details):
+    with st.expander("ⓘ Answer details"):
+        elapsed = details.get("elapsed_seconds")
+        if elapsed is not None:
+            st.caption(f"Generated in {elapsed:.1f} seconds")
+
+        reasoning = details.get("reasoning")
+        if reasoning:
+            st.markdown("**Reasoning**")
+            st.markdown(reasoning)
+
+        matches = details.get("matches") or []
+        if matches:
+            st.markdown("**Retrieved sources**")
+            for doc, score in matches:
+                render_source_line(
+                    doc, score, discarded=details.get("discarded", False))
+                st.text(
+                    doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
+
+
+st.set_page_config(page_title="Ask Your Knowledge Base",
+                   page_icon="🤖", layout="wide")
+st.title("🤖 Ask Your Knowledge Base")
 st.caption(
-    "Answers come only from your ingested books — no outside knowledge, no internet calls.")
+    "Answers come only from your knowledge sources — no outside knowledge, no internet calls.")
 
 # --- Health check ------------------------------------------------------------
 
@@ -85,7 +117,7 @@ with st.sidebar:
     )
 
     st.divider()
-    show_sources = st.checkbox("Show retrieved sources per answer", value=True)
+    show_details = st.checkbox("Show technical answer details", value=True)
 
     if st.button("🔄 Reset conversation"):
         st.session_state.messages = []
@@ -119,16 +151,12 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if msg.get("sources"):
-            with st.expander("📎 Retrieved sources"):
-                for doc, score in msg["sources"]:
-                    render_source_line(doc, score)
-                    st.text(
-                        doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
+        if msg.get("details"):
+            render_answer_details(msg["details"])
 
 # --- New question ------------------------------------------------------------
 
-question = st.chat_input("Ask something about your books...")
+question = st.chat_input("Ask something about your knowledge sources...")
 
 if question:
     st.session_state.messages.append(
@@ -143,10 +171,14 @@ if question:
         if context is None:
             answer = "I don't have information about this in the provided knowledge source."
             st.markdown(answer)
-            if show_sources and matches:
-                with st.expander("📎 Closest (but below-threshold) matches"):
-                    for doc, score in matches:
-                        render_source_line(doc, score, discarded=True)
+            st.caption(
+                "No answer generated because no relevant source was found.")
+            if show_details and matches:
+                render_answer_details({
+                    "matches": matches,
+                    "discarded": True,
+                })
+            details = {"matches": matches, "discarded": True}
         else:
             history = []
             for m in st.session_state.messages[:-1]:
@@ -155,24 +187,36 @@ if question:
             max_messages = config.MAX_HISTORY_TURNS * 2
             history = history[-max_messages:]
 
+            answer_placeholder = st.empty()
+            full_response = ""
+            started_at = time.perf_counter()
             try:
-                answer = st.write_stream(
-                    core.stream_answer(
-                        model, history, question, context, temperature)
-                )
+                with st.spinner("Thinking..."):
+                    for piece in core.stream_answer(
+                            model, history, question, context, temperature):
+                        full_response += piece
+                        _, visible_answer = split_answer(full_response)
+                        answer_placeholder.markdown(
+                            visible_answer or "Thinking...")
+                reasoning, answer = split_answer(full_response)
+                elapsed = time.perf_counter() - started_at
+                answer_placeholder.markdown(answer)
+                st.caption(f"Generated in {elapsed:.1f} seconds")
+                details = {
+                    "reasoning": reasoning,
+                    "matches": matches,
+                    "elapsed_seconds": elapsed,
+                }
             except Exception as e:
                 answer = f"⚠️ Generation failed: {e}"
                 st.error(answer)
+                details = {"matches": matches}
 
-            if show_sources:
-                with st.expander("📎 Retrieved sources"):
-                    for doc, score in matches:
-                        render_source_line(doc, score)
-                        st.text(
-                            doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
+            if show_details:
+                render_answer_details(details)
 
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer,
-        "sources": matches if context is not None else None,
+        "details": details,
     })

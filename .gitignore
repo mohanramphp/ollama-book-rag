@@ -3,8 +3,8 @@ __pycache__/
 *.pyc
 
 chroma_db/
-books_manifest.json
-books/*
-!books/.gitkeep
+knowledge_sources_manifest.json
+knowledge_sources/*
+!knowledge_sources/.gitkeep
 
 .env

@@ -9,7 +9,6 @@ Usage:
 import sys
 from pathlib import Path
 
-import config
 import rag_core as core
 
 
@@ -40,7 +39,7 @@ def main():
 
     for f in files:
         print(f"Ingesting: {f.name}")
-        for update in core.ingest_book(f, semantic=use_semantic):
+        for update in core.ingest_source(f, semantic=use_semantic):
             if update["stage"] == "error":
                 print(f"  ERROR: {update['message']}")
                 break

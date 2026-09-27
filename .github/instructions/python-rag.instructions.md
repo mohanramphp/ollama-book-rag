@@ -7,7 +7,7 @@ applyTo: "**/*.py"
 - Use `py` rather than `python` in Windows command examples, CLI help, and project scripts.
 - Preserve supported source extensions: `.pdf`, `.epub`, `.txt`, and `.md`.
 - Preserve content-based deduplication: hashes are based on extracted text, not raw file bytes.
-- Preserve source metadata, including `source_book`, `chunking_method`, and `chunk_index`.
+- Preserve source metadata, including `source_name`, `chunking_method`, and `chunk_index`.
 - Chroma uses cosine distance. Lower scores are more relevant, and relevant results satisfy `score <= relevance_threshold`.
 - Answers must use retrieved context only. Do not weaken refusal behavior or introduce outside knowledge.
 - Preserve the exact refusal text: `I don't have information about this in the provided knowledge source.`

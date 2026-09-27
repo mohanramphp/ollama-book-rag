@@ -1,4 +1,4 @@
-# Copilot Instructions for Ollama Book RAG
+# Copilot Instructions for Ollama Knowledge Sources RAG
 
 ## Project Purpose
 
@@ -59,9 +59,7 @@ Use `py`, not `python`, in Windows command examples and project scripts. Run com
 
 ## Configuration and Compatibility
 
-Configuration belongs in `config.py` and is environment-overridable. Read `.env.example` before changing settings. The current source directory is `./knowledge_sources`, Chroma is stored in `./chroma_db`, and the manifest keeps its legacy default filename for compatibility.
-
-`RAG_BOOKS_DIR` remains a backward-compatible fallback. Do not remove it without an explicit migration plan.
+Configuration belongs in `config.py` and is environment-overridable. Read `.env.example` before changing settings. The current source directory is `./knowledge_sources`, Chroma is stored in `./chroma_db`, and the manifest is `./knowledge_sources_manifest.json`.
 
 ## Non-Negotiable Behavior
 

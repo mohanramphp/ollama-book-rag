@@ -12,10 +12,11 @@ import os
 
 SOURCES_DIR = os.environ.get(
     "RAG_SOURCES_DIR",
-    os.environ.get("RAG_BOOKS_DIR", "./knowledge_sources"),
+    "./knowledge_sources",
 )
 PERSIST_DIR = os.environ.get("RAG_PERSIST_DIR", "./chroma_db")
-MANIFEST_PATH = os.environ.get("RAG_MANIFEST_PATH", "./books_manifest.json")
+MANIFEST_PATH = os.environ.get(
+    "RAG_MANIFEST_PATH", "./knowledge_sources_manifest.json")
 
 # --- Models ------------------------------------------------------------
 
@@ -37,6 +38,8 @@ CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", 120))
 TOP_K_DEFAULT = int(os.environ.get("RAG_TOP_K", 4))
 RELEVANCE_THRESHOLD_DEFAULT = float(
     os.environ.get("RAG_RELEVANCE_THRESHOLD", 0.8))
+MAX_CHUNKS_PER_SOURCE_DEFAULT = int(
+    os.environ.get("RAG_MAX_CHUNKS_PER_SOURCE", 2))
 TEMPERATURE_DEFAULT = float(os.environ.get("RAG_TEMPERATURE", 0.0))
 MAX_HISTORY_TURNS = int(os.environ.get("RAG_MAX_HISTORY_TURNS", 6))
 

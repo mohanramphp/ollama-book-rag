@@ -25,7 +25,7 @@ def main():
         return
 
     print(
-        f"Ready. Answering strictly from your books using '{config.DEFAULT_MODEL}'.")
+        f"Ready. Answering strictly from your knowledge sources using '{config.DEFAULT_MODEL}'.")
     print("Type your question, '/reset' to clear conversation memory, or 'exit' to quit.\n")
 
     conversation_history = []
@@ -50,7 +50,7 @@ def main():
 
         print("  [debug] retrieval scores (lower = more relevant):")
         for doc, score in matches:
-            source = doc.metadata.get("source_book", "unknown")
+            source = doc.metadata.get("source_name", "unknown")
             method = doc.metadata.get("chunking_method", "unknown")
             print(f"    {score:.3f}  ({source}, {method} chunking)")
 

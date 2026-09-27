@@ -1,7 +1,7 @@
-# Ollama Book RAG
+# Ollama Knowledge Sources RAG
 
 A fully offline Retrieval-Augmented Generation (RAG) system: upload your own
-books, and ask questions that get answered strictly from their content — no
+knowledge sources, and ask questions that get answered strictly from their content — no
 internet calls, no outside knowledge, no accounts. Runs entirely on your
 machine via Ollama.
 
@@ -9,18 +9,18 @@ machine via Ollama.
 
 ## What's in this project
 
-| File                                          | Purpose                                                                                                                                                                      |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config.py`                                   | Every setting in one place (paths, models, chunk size, retrieval defaults). Overridable via environment variables — see `.env.example`.                                      |
-| `rag_core.py`                                 | The actual logic: loading books, chunking, embedding, dedup tracking, retrieval, and chat. Everything else imports from here, so there's one implementation to keep correct. |
-| `knowledge_builder_app.py`                    | **Streamlit UI** — add knowledge sources, watch live ingestion progress, browse a catalog of what's ingested.                                                                |
-| `query_app.py`                                | **Streamlit UI** — chat interface with markdown/code rendering, model picker, and sliders for top_k / relevance threshold / temperature.                                     |
-| `knowledge_builder.py`                        | CLI equivalent of the Knowledge Builder UI, for scripting/automation.                                                                                                        |
-| `query.py`                                    | CLI equivalent of the query UI, for quick terminal testing.                                                                                                                  |
-| `requirements.txt`                            | This project's exact dependencies, isolated in its own virtual environment.                                                                                                  |
-| `setup.bat`                                   | One-time setup: creates the venv, installs dependencies.                                                                                                                     |
-| `run_knowledge_builder.bat` / `run_query.bat` | Activate the venv and launch each UI.                                                                                                                                        |
-| `.env.example`                                | Every config value you can override, documented.                                                                                                                             |
+| File                                          | Purpose                                                                                                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.py`                                   | Every setting in one place (paths, models, chunk size, retrieval defaults). Overridable via environment variables — see `.env.example`.                                                  |
+| `rag_core.py`                                 | The actual logic: loading knowledge sources, chunking, embedding, dedup tracking, retrieval, and chat. Everything else imports from here, so there's one implementation to keep correct. |
+| `knowledge_builder_app.py`                    | **Streamlit UI** — add knowledge sources, watch live ingestion progress, browse a catalog of what's ingested.                                                                            |
+| `query_app.py`                                | **Streamlit UI** — chat interface with markdown/code rendering, model picker, and sliders for top_k / relevance threshold / temperature.                                                 |
+| `knowledge_builder.py`                        | CLI equivalent of the Knowledge Builder UI, for scripting/automation.                                                                                                                    |
+| `query.py`                                    | CLI equivalent of the query UI, for quick terminal testing.                                                                                                                              |
+| `requirements.txt`                            | This project's exact dependencies, isolated in its own virtual environment.                                                                                                              |
+| `setup.bat`                                   | One-time setup: creates the venv, installs dependencies.                                                                                                                                 |
+| `run_knowledge_builder.bat` / `run_query.bat` | Activate the venv and launch each UI.                                                                                                                                                    |
+| `.env.example`                                | Every config value you can override, documented.                                                                                                                                         |
 
 ---
 
@@ -77,7 +77,7 @@ Opens a browser tab. Drag in PDF/EPUB/TXT/MD files, choose recursive or semantic
 run_query.bat
 ```
 
-Opens a browser tab. Pick a model from the sidebar, adjust `top_k` / relevance threshold / temperature if needed, and start chatting. Code in answers renders as proper formatted code blocks. Each answer has an expandable "Retrieved sources" section showing exactly which book chunks and relevance scores were used.
+Opens a browser tab. Pick a model from the sidebar, adjust `top_k` / relevance threshold / temperature if needed, and start chatting. Code in answers renders as proper formatted code blocks. Each answer has an expandable "Retrieved sources" section showing exactly which source chunks and relevance scores were used.
 
 You can run both at once (two terminals) — they share the same on-disk database.
 
@@ -116,7 +116,7 @@ retrieved content isn't relevant enough to the question.
 - **Isolated environment**: `setup.bat` creates a dedicated `venv` so this project's dependencies never conflict with or pollute your global Python install.
 - **Single source of truth**: all four entry points (`knowledge_builder_app.py`, `query_app.py`, `knowledge_builder.py`, `query.py`) call into `rag_core.py` — no duplicated logic to fall out of sync.
 - **Health checks**: both UIs and both CLI scripts check that Ollama is actually reachable (and that required models are pulled) before doing anything, and fail with a clear message instead of a raw connection traceback.
-- **Content-based dedup**: books are hashed (SHA-256) on upload, so a renamed re-upload of the same file is still caught.
+- **Content-based dedup**: knowledge sources are hashed (SHA-256) on upload, so a renamed re-upload of the same file is still caught.
 - **Cosine distance**: the vector store explicitly uses cosine similarity (bounded 0–2), so the relevance threshold is a meaningful, tunable number rather than an arbitrary guess against an unknown default metric.
 - **Resilient ingestion**: embedding happens in retryable batches (both for normal and semantic chunking) so a transient Ollama hiccup doesn't cost you the whole ingestion job.
 - **Configurable, not hardcoded**: every tunable value (chunk size, top_k, temperature, batch sizes, retry behavior) lives in `config.py` and can be overridden via environment variables without touching code.
@@ -141,7 +141,7 @@ Switch models anytime from the sidebar dropdown in `query_app.py`, or by changin
 - **"Ollama isn't reachable"** on either UI — make sure the Ollama app/service is actually running (check Task Manager), then refresh the page.
 - **"Required model(s) not pulled yet"** — run the `ollama pull ...` command shown in the error.
 - **`python`/`py` not recognized** — install Python from python.org with "Add to PATH" checked, or disable the Microsoft Store alias at Settings > Apps > Advanced app settings > App execution aliases.
-- **A question the books clearly cover gets refused** — lower the relevance threshold slider (or `RAG_RELEVANCE_THRESHOLD`) slightly; it defaults to a fairly strict `0.8` on cosine distance.
+- **A question the knowledge sources clearly cover gets refused** — lower the relevance threshold slider (or `RAG_RELEVANCE_THRESHOLD`) slightly; it defaults to a fairly strict `0.8` on cosine distance.
 - **Semantic chunking fails partway with a connection error** — this is CPU load, not a real crash; it retries automatically. If it keeps failing, close other heavy applications and re-run.
 
 ---

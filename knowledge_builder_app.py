@@ -68,7 +68,7 @@ if uploaded_files and st.button("Ingest selected files", type="primary"):
         progress_bar = st.progress(0, text="Starting...")
         status_text = st.empty()
 
-        for update in core.ingest_book(dest_path, semantic=use_semantic):
+        for update in core.ingest_source(dest_path, semantic=use_semantic):
             stage = update["stage"]
 
             if stage == "error":
@@ -111,7 +111,7 @@ else:
     rows = []
     for content_hash, info in manifest.items():
         rows.append({
-            "Book": info["filename"],
+            "Source": info["filename"],
             "Ingested": info["ingested_at"],
             "Pages": info["pages"],
             "Chunks": info["chunks"],
@@ -121,12 +121,12 @@ else:
 
     total_chunks = sum(r["Chunks"] for r in rows)
     st.caption(
-        f"{len(rows)} book(s), {total_chunks} total chunks in the knowledge base.")
+        f"{len(rows)} source(s), {total_chunks} total chunks in the knowledge base.")
 
     with st.expander("⚠️ Danger zone: reset everything"):
         st.write("This deletes the vector database, the catalog, **and the uploaded "
                  "source files themselves** from the `./knowledge_sources` folder. This can't be undone.")
-        if st.button("Delete knowledge base, catalog, and book files", type="secondary"):
+        if st.button("Delete knowledge base, catalog, and source files", type="secondary"):
             import shutil
 
             shutil.rmtree(config.PERSIST_DIR, ignore_errors=True)

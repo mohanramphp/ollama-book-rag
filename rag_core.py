@@ -1,5 +1,5 @@
 """
-rag_core.py — Shared logic for the knowledge-base project. Every entry point
+rag_core.py — Shared logic for the knowledge-sources project. Every entry point
 (knowledge_builder_app.py, query_app.py, knowledge_builder.py, query.py) imports from here, so
 there's exactly one implementation of chunking/embedding/retrieval/chat to
 keep correct instead of several copies drifting apart.
@@ -24,12 +24,12 @@ SOURCES_DIR = Path(config.SOURCES_DIR)
 SOURCES_DIR.mkdir(exist_ok=True)
 
 SYSTEM_PROMPT = """You are a knowledge assistant that answers questions using ONLY the
-context provided below, which comes from the user's own book collection.
+context provided below, which comes from the user's own knowledge sources.
 
 Respond in exactly this two-part format:
 
 **Reasoning:** One or two sentences on which part of the provided context (and
-which source book) you're drawing from, and why it answers the question.
+which source) you're drawing from, and why it answers the question.
 If nothing in the context is relevant, say so here.
 
 **Answer:** Your actual answer to the question, using only the provided context.
@@ -102,7 +102,7 @@ def content_text_hash(docs) -> str:
     that actually matters for dedup: a renamed file, a re-saved PDF, or a
     re-exported EPUB can all produce different raw bytes for the exact same
     text content — hashing the extracted text catches all of those as the
-    same book, where a raw file hash would miss them.
+    same source, where a raw file hash would miss them.
     """
     combined = "\n".join(d.page_content for d in docs)
     return hashlib.sha256(combined.encode("utf-8", errors="ignore")).hexdigest()
@@ -148,13 +148,13 @@ class ResilientOllamaEmbeddings(OllamaEmbeddings):
         return all_embeddings
 
 
-def ingest_book(file_path: Path, semantic: bool = False):
+def ingest_source(file_path: Path, semantic: bool = False):
     """
     Generator that yields progress updates as dicts, so a UI or CLI can
     render live progress. Yields:
       {"stage": "loading" | "duplicate" | "chunking" | "embedding" | "done" | "error", ...}
 
-    Blocks ingestion (yields "duplicate" and stops) if this book's extracted
+    Blocks ingestion (yields "duplicate" and stops) if this source's extracted
     text content matches something already in the knowledge base — even if
     the filename is different or the underlying file bytes differ slightly.
     """
@@ -162,7 +162,7 @@ def ingest_book(file_path: Path, semantic: bool = False):
         yield {"stage": "loading", "message": f"Loading {file_path.name}..."}
         docs = load_file(file_path)
         for d in docs:
-            d.metadata["source_book"] = file_path.name
+            d.metadata["source_name"] = file_path.name
 
         yield {"stage": "loading", "message": f"Loaded {len(docs)} page(s)/section(s)"}
 
@@ -173,7 +173,7 @@ def ingest_book(file_path: Path, semantic: bool = False):
             yield {
                 "stage": "duplicate",
                 "message": (
-                    f"This book's content matches '{existing['filename']}', "
+                    f"This source's content matches '{existing['filename']}', "
                     f"already ingested on {existing['ingested_at']}. Skipping "
                     f"to avoid duplicate chunks in the knowledge base."
                 ),
@@ -256,12 +256,14 @@ def get_vectorstore():
     )
 
 
-def retrieve_context(vectorstore, question: str, top_k: int = None, relevance_threshold: float = None):
-    """Returns (context_string_or_None, list_of_(doc, score)_all_results)."""
+def retrieve_context(vectorstore, question: str, top_k: int = None, relevance_threshold: float = None,
+                     max_per_source: int = None):
     top_k = top_k if top_k is not None else config.TOP_K_DEFAULT
     relevance_threshold = relevance_threshold if relevance_threshold is not None else config.RELEVANCE_THRESHOLD_DEFAULT
+    max_per_source = max_per_source if max_per_source is not None else config.MAX_CHUNKS_PER_SOURCE_DEFAULT
 
-    results = vectorstore.similarity_search_with_score(question, k=top_k)
+    fetch_k = max(top_k * 3, 10)
+    results = vectorstore.similarity_search_with_score(question, k=fetch_k)
     if not results:
         return None, []
 
@@ -270,19 +272,36 @@ def retrieve_context(vectorstore, question: str, top_k: int = None, relevance_th
     if not relevant:
         return None, results
 
+    relevant.sort(key=lambda pair: pair[1])
+
+    selected = []
+    per_source_count = {}
+
+    if max_per_source:
+        for doc, score in relevant:
+            source_name = doc.metadata.get("source_name", "unknown")
+            if per_source_count.get(source_name, 0) < max_per_source:
+                selected.append((doc, score))
+                per_source_count[source_name] = per_source_count.get(
+                    source_name, 0) + 1
+            if len(selected) >= top_k:
+                break
+    else:
+        selected = relevant[:top_k]
+
     context_blocks = []
-    for doc, score in relevant:
-        source = doc.metadata.get("source_book", "unknown")
+    for doc, score in selected:
+        source = doc.metadata.get("source_name", "unknown")
         context_blocks.append(f"[Source: {source}]\n{doc.page_content}")
 
-    return "\n\n---\n\n".join(context_blocks), relevant
+    return "\n\n---\n\n".join(context_blocks), selected
 
 
 def stream_answer(model: str, history: list, question: str, context: str, temperature: float = None):
     """Yields response text pieces as they're generated (for live streaming)."""
     temperature = temperature if temperature is not None else config.TEMPERATURE_DEFAULT
 
-    user_message = f"""Context from the user's books (for this question only):
+    user_message = f"""Context from the user's knowledge sources (for this question only):
 
 {context}
 

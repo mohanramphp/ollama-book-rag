@@ -12,10 +12,11 @@ import streamlit as st
 
 import config
 import rag_core as core
+import os
 
 
 def render_source_line(doc, score, discarded: bool = False):
-    source = doc.metadata.get("source_book", "unknown")
+    source = doc.metadata.get("source_name", "unknown")
     method = doc.metadata.get("chunking_method", "unknown")
     suffix = " (above threshold, discarded)" if discarded else ""
     st.markdown(
@@ -25,28 +26,28 @@ def render_source_line(doc, score, discarded: bool = False):
 def split_answer(response):
     marker = "**Answer:**"
     if marker in response:
-        reasoning, answer = response.split(marker, 1)
-        return reasoning.replace("**Reasoning:**", "").strip(), answer.strip()
+        reasoning_text, answer_text = response.split(marker, 1)
+        return reasoning_text.replace("**Reasoning:**", "").strip(), answer_text.strip()
     return "", response.strip()
 
 
-def render_answer_details(details):
+def render_answer_details(answer_details):
     with st.expander("ⓘ Answer details"):
-        elapsed = details.get("elapsed_seconds")
-        if elapsed is not None:
-            st.caption(f"Generated in {elapsed:.1f} seconds")
+        generated_time = answer_details.get("elapsed_seconds")
+        if generated_time is not None:
+            st.caption(f"Generated in {generated_time:.1f} seconds")
 
-        reasoning = details.get("reasoning")
-        if reasoning:
+        reasoning_text = answer_details.get("reasoning")
+        if reasoning_text:
             st.markdown("**Reasoning**")
-            st.markdown(reasoning)
+            st.markdown(reasoning_text)
 
-        matches = details.get("matches") or []
-        if matches:
+        source_matches = answer_details.get("matches") or []
+        if source_matches:
             st.markdown("**Retrieved sources**")
-            for doc, score in matches:
+            for doc, score in source_matches:
                 render_source_line(
-                    doc, score, discarded=details.get("discarded", False))
+                    doc, score, discarded=answer_details.get("discarded", False))
                 st.text(
                     doc.page_content[:300] + ("..." if len(doc.page_content) > 300 else ""))
 
@@ -102,8 +103,17 @@ with st.sidebar:
         value=config.RELEVANCE_THRESHOLD_DEFAULT, step=0.05,
         help="Lower = stricter (only very close matches count as relevant). "
              "0 = identical, 2 = completely unrelated. Raise this if the model "
-             "refuses questions the books actually cover; lower it if it's "
+             "refuses questions the sources actually cover; lower it if it's "
              "answering from irrelevant chunks.",
+    )
+
+    max_per_source = st.slider(
+        "Max chunks per source", min_value=1, max_value=top_k,
+        value=min(max(1, config.MAX_CHUNKS_PER_SOURCE_DEFAULT), top_k),
+        help="Caps how many of the retrieved chunks can come from any single "
+        "source. With several sources ingested, this stops one large or "
+        "topically-dense source from crowding out the others in every "
+        "answer. Set equal to top_k to disable the cap.",
     )
 
     st.divider()
@@ -123,16 +133,29 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+
+def _manifest_signature():
+    """Changes whenever a source is added/removed, so the cache below
+    automatically refreshes instead of silently serving a stale snapshot
+    from before the latest ingestion."""
+    try:
+        return os.path.getmtime(config.MANIFEST_PATH)
+    except OSError:
+        return 0
+
 # --- Load vector store (cached so it's not reloaded every rerun) -----------
 
 
 @st.cache_resource
-def load_store():
+def load_store(manifest_signature):
+    if manifest_signature is None:
+        raise ValueError(
+            "A manifest signature is required to load the knowledge base")
     return core.get_vectorstore()
 
 
 try:
-    vectorstore = load_store()
+    vectorstore = load_store(_manifest_signature())
 except Exception as e:
     st.error(f"Could not load the knowledge base: {e}")
     st.info("Ingest some knowledge sources first using knowledge_builder_app.py.")
@@ -151,7 +174,7 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if msg.get("details"):
+        if show_details and msg.get("details"):
             render_answer_details(msg["details"])
 
 # --- New question ------------------------------------------------------------
@@ -165,7 +188,12 @@ if question:
         st.markdown(question)
 
     context, matches = core.retrieve_context(
-        vectorstore, question, top_k, relevance_threshold)
+        vectorstore,
+        question,
+        top_k=top_k,
+        relevance_threshold=relevance_threshold,
+        max_per_source=max_per_source,
+    )
 
     with st.chat_message("assistant"):
         if context is None:
@@ -198,14 +226,16 @@ if question:
                         _, visible_answer = split_answer(full_response)
                         answer_placeholder.markdown(
                             visible_answer or "Thinking...")
-                reasoning, answer = split_answer(full_response)
-                elapsed = time.perf_counter() - started_at
+                response_reasoning, response_answer = split_answer(
+                    full_response)
+                elapsed_seconds = time.perf_counter() - started_at
+                answer = response_answer
                 answer_placeholder.markdown(answer)
-                st.caption(f"Generated in {elapsed:.1f} seconds")
+                st.caption(f"Generated in {elapsed_seconds:.1f} seconds")
                 details = {
-                    "reasoning": reasoning,
+                    "reasoning": response_reasoning,
                     "matches": matches,
-                    "elapsed_seconds": elapsed,
+                    "elapsed_seconds": elapsed_seconds,
                 }
             except Exception as e:
                 answer = f"⚠️ Generation failed: {e}"
